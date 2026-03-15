@@ -1,32 +1,29 @@
 #pragma once
-
 #ifdef USE_HOST
 
-#include "esphome/core/preferences.h"
+#include "esphome/core/preference_backend.h"
+#include <cstring>
 #include <map>
+#include <string>
+#include <vector>
 
-namespace esphome {
-namespace host {
+namespace esphome::host {
 
-class HostPreferenceBackend : public ESPPreferenceBackend {
+class HostPreferences final {
  public:
-  explicit HostPreferenceBackend(uint32_t key) { this->key_ = key; }
+  bool sync();
+  bool reset();
 
-  bool save(const uint8_t *data, size_t len) override;
-  bool load(uint8_t *data, size_t len) override;
+  ESPPreferenceObject make_preference(size_t length, uint32_t type, bool in_flash);
+  ESPPreferenceObject make_preference(size_t length, uint32_t type) { return make_preference(length, type, false); }
 
- protected:
-  uint32_t key_{};
-};
-
-class HostPreferences : public ESPPreferences {
- public:
-  bool sync() override;
-  bool reset() override;
-
-  ESPPreferenceObject make_preference(size_t length, uint32_t type, bool in_flash) override;
-  ESPPreferenceObject make_preference(size_t length, uint32_t type) override {
-    return make_preference(length, type, false);
+  template<typename T, enable_if_t<is_trivially_copyable<T>::value, bool> = true>
+  ESPPreferenceObject make_preference(uint32_t type, bool in_flash) {
+    return this->make_preference(sizeof(T), type, in_flash);
+  }
+  template<typename T, enable_if_t<is_trivially_copyable<T>::value, bool> = true>
+  ESPPreferenceObject make_preference(uint32_t type) {
+    return this->make_preference(sizeof(T), type);
   }
 
   bool save(uint32_t key, const uint8_t *data, size_t len) {
@@ -58,10 +55,16 @@ class HostPreferences : public ESPPreferences {
   std::string filename_{};
   std::map<uint32_t, std::vector<uint8_t>> data{};
 };
+
 void setup_preferences();
 extern HostPreferences *host_preferences;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
-}  // namespace host
+}  // namespace esphome::host
+
+namespace esphome {
+using Preferences = host::HostPreferences;
+using ESPPreferences = Preferences;
+extern ESPPreferences *global_preferences;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 }  // namespace esphome
 
 #endif  // USE_HOST
